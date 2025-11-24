@@ -1,0 +1,93 @@
+```mermaid
+sequenceDiagram
+    participant Partner as Parceiro Externo
+    participant API as API Gateway
+    participant AppSvc as Application Service
+    participant Repo as Repository
+    participant DB as SQL Server
+    participant MsgBus as Message Bus
+    participant Worker as Worker Service
+    participant Adapter as External Adapter
+    participant External as Sistema Externo
+
+    autonumber
+    
+    rect rgb(230, 245, 255)
+        Note over Partner,API: 1. Recepção da Requisição
+        Partner->>+API: POST /api/integration-requests<br/>(JWT Token + Payload)
+        API->>API: Valida JWT
+        API->>API: Gera/Captura CorrelationId
+        API->>+AppSvc: CreateAsync(command)
+    end
+    
+    rect rgb(255, 245, 230)
+        Note over AppSvc,DB: 2. Persistência
+        AppSvc->>AppSvc: Cria IntegrationRequest
+        AppSvc->>+Repo: AddAsync(request)
+        Repo->>+DB: INSERT INTO IntegrationRequests
+        DB-->>-Repo: OK
+        Repo-->>-AppSvc: request.Id
+    end
+    
+    rect rgb(245, 255, 230)
+        Note over AppSvc,MsgBus: 3. Publicação de Evento
+        AppSvc->>+MsgBus: PublishAsync(IntegrationRequestCreated)
+        MsgBus->>MsgBus: Enfileira mensagem
+        MsgBus-->>-AppSvc: OK
+        AppSvc-->>-API: IntegrationRequestDto
+        API-->>-Partner: 202 Accepted<br/>{id, status: "Received", correlationId}
+    end
+    
+    rect rgb(255, 230, 245)
+        Note over MsgBus,Worker: 4. Processamento Assíncrono
+        MsgBus->>+Worker: Consome IntegrationRequestCreated
+        Worker->>Worker: BeginScope(CorrelationId)
+        Worker->>+Repo: UpdateStatusAsync(Processing)
+        Repo->>DB: UPDATE IntegrationRequests SET Status='Processing'
+        Repo-->>-Worker: OK
+        
+        Worker->>Worker: Valida Payload
+        
+        Worker->>+Repo: UpdateStatusAsync(WaitingExternal)
+        Repo->>DB: UPDATE IntegrationRequests SET Status='WaitingExternal'
+        Repo-->>-Worker: OK
+    end
+    
+    rect rgb(245, 230, 255)
+        Note over Worker,External: 5. Chamada ao Sistema Externo
+        Worker->>+Adapter: CallExternalSystemAsync(payload)
+        Adapter->>+External: POST /protheus/v1/orders<br/>(X-Correlation-ID)
+        
+        alt Sistema Externo Responde com Sucesso
+            External-->>-Adapter: 200 OK {protheusOrderId}
+            Adapter-->>-Worker: ExternalResponse
+            
+            Worker->>+Repo: UpdateStatusAsync(Completed, response)
+            Repo->>DB: UPDATE IntegrationRequests<br/>SET Status='Completed', ExternalResponse=...
+            Repo-->>-Worker: OK
+            Worker->>MsgBus: ACK (remove mensagem da fila)
+        else Sistema Externo Falha (após retries)
+            External-->>Adapter: 503 Service Unavailable
+            Adapter-->>Worker: HttpRequestException
+            
+            Worker->>+Repo: UpdateStatusAsync(Failed, error)
+            Repo->>DB: UPDATE IntegrationRequests<br/>SET Status='Failed', ErrorMessage=...
+            Repo-->>-Worker: OK
+            Worker->>MsgBus: NACK → Move para DLQ
+        end
+        
+        Worker-->>-MsgBus: Processamento Concluído
+    end
+    
+    rect rgb(230, 255, 245)
+        Note over Partner,API: 6. Consulta de Status (Opcional)
+        Partner->>+API: GET /api/integration-requests/{id}
+        API->>+AppSvc: GetByIdAsync(id)
+        AppSvc->>+Repo: GetByIdAsync(id)
+        Repo->>DB: SELECT * FROM IntegrationRequests WHERE Id=...
+        DB-->>Repo: IntegrationRequest
+        Repo-->>-AppSvc: IntegrationRequest
+        AppSvc-->>-API: IntegrationRequestDto
+        API-->>-Partner: 200 OK {status: "Completed", externalResponse}
+    end
+```

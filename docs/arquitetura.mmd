@@ -1,0 +1,62 @@
+```mermaid
+flowchart LR
+    %% Camada de Entrada
+    Partner[Parceiro Externo]
+    
+    %% API Gateway
+    API[API Gateway<br/>ASP.NET Core 8<br/>JWT Auth]
+    
+    %% Application Layer
+    AppService[Application Services<br/>IntegrationRequestService]
+    
+    %% Domain Layer
+    Domain[Domain Layer<br/>IntegrationRequest<br/>Domain Events]
+    
+    %% Infrastructure
+    Repo[Repository<br/>EF Core]
+    DB[(SQL Server<br/>Integration Requests)]
+    
+    MessageBus[Message Bus<br/>RabbitMQ]
+    
+    %% Worker
+    Worker[Worker Service<br/>Orchestration]
+    
+    %% External Systems
+    Adapter[External Adapter<br/>HTTP Client]
+    ExternalSAP[Sistema Externo<br/>Totvs Protheus]
+    
+    %% Observability
+    Logs[Observability<br/>Serilog + OpenTelemetry]
+    Grafana[Dashboards<br/>Grafana + Prometheus]
+    
+    %% Fluxo Principal
+    Partner -->|POST /api/integration-requests| API
+    API --> AppService
+    AppService --> Domain
+    AppService --> Repo
+    Repo --> DB
+    AppService --> MessageBus
+    
+    MessageBus -.->|Consume Event| Worker
+    Worker --> Adapter
+    Adapter -->|HTTP/REST| ExternalSAP
+    Worker --> Repo
+    
+    %% Observability
+    API -.-> Logs
+    Worker -.-> Logs
+    Logs --> Grafana
+    
+    %% Estilos
+    classDef apiStyle fill:#4CAF50,stroke:#2E7D32,color:#fff
+    classDef domainStyle fill:#2196F3,stroke:#1565C0,color:#fff
+    classDef infraStyle fill:#FF9800,stroke:#E65100,color:#fff
+    classDef externalStyle fill:#9C27B0,stroke:#6A1B9A,color:#fff
+    classDef observStyle fill:#607D8B,stroke:#37474F,color:#fff
+    
+    class API apiStyle
+    class AppService,Domain domainStyle
+    class Repo,DB,MessageBus,Worker infraStyle
+    class Adapter,ExternalSAP externalStyle
+    class Logs,Grafana observStyle
+```

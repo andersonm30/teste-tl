@@ -1,0 +1,48 @@
+```mermaid
+stateDiagram-v2
+    [*] --> Received: API recebe requisição
+
+    Received --> Processing: Worker consome evento da fila
+    Received --> Failed: Timeout (mensagem não processada em 24h)
+
+    Processing --> WaitingExternal: Validação de payload OK
+    Processing --> Failed: Validação de payload falha
+    Processing --> Failed: Exceção não tratada
+
+    WaitingExternal --> Completed: Sistema externo retorna 2xx
+    WaitingExternal --> Failed: Sistema externo retorna 4xx/5xx após retries
+    WaitingExternal --> Failed: Timeout da chamada externa (> 60s)
+
+    Completed --> [*]: Estado final
+    Failed --> [*]: Estado final (Move para DLQ)
+
+    note right of Received
+        Status inicial após persistência
+        Duração típica: < 100ms
+    end note
+
+    note right of Processing
+        Validações de negócio
+        Transformações de payload
+        Duração típica: 200-500ms
+    end note
+
+    note right of WaitingExternal
+        HTTP request em trânsito
+        Retry com backoff exponencial
+        Duração típica: 1-5s
+    end note
+
+    note right of Completed
+        Sucesso: Response armazenado
+        Mensagem removida da fila
+        SLA alcançado
+    end note
+
+    note right of Failed
+        Falha irrecuperável
+        ErrorMessage armazenado
+        Mensagem movida para DLQ
+        Alert disparado
+    end note
+```

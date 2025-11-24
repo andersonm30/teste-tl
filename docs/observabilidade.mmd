@@ -1,0 +1,76 @@
+```mermaid
+flowchart TD
+    subgraph Application["Aplicação (API + Worker)"]
+        API[API Gateway]
+        Worker[Worker Service]
+    end
+    
+    subgraph Logging["Logs Estruturados"]
+        Serilog[Serilog<br/>Structured Logging]
+        LogEnrich[Enrichers:<br/>CorrelationId<br/>MachineName<br/>Environment]
+    end
+    
+    subgraph Tracing["Distributed Tracing"]
+        OTel[OpenTelemetry]
+        Spans[Spans:<br/>HTTP Requests<br/>DB Queries<br/>External Calls]
+    end
+    
+    subgraph Metrics["Métricas"]
+        Prometheus[Prometheus<br/>Time-Series DB]
+        Counters[Counters:<br/>Requests Total<br/>Errors Total]
+        Histograms[Histograms:<br/>Duration<br/>Latency]
+        Gauges[Gauges:<br/>Queue Depth<br/>Active Tasks]
+    end
+    
+    subgraph Storage["Armazenamento"]
+        Seq[Seq / Elasticsearch<br/>Log Aggregation]
+        Jaeger[Jaeger<br/>Trace Visualization]
+    end
+    
+    subgraph Visualization["Visualização"]
+        Grafana[Grafana Dashboards]
+        Alerts[Prometheus AlertManager]
+        PagerDuty[PagerDuty<br/>Incident Management]
+    end
+    
+    %% Fluxo de Logs
+    API --> Serilog
+    Worker --> Serilog
+    Serilog --> LogEnrich
+    LogEnrich --> Seq
+    
+    %% Fluxo de Traces
+    API --> OTel
+    Worker --> OTel
+    OTel --> Spans
+    Spans --> Jaeger
+    
+    %% Fluxo de Métricas
+    API --> Prometheus
+    Worker --> Prometheus
+    Prometheus --> Counters
+    Prometheus --> Histograms
+    Prometheus --> Gauges
+    
+    %% Visualização
+    Seq --> Grafana
+    Jaeger --> Grafana
+    Prometheus --> Grafana
+    Prometheus --> Alerts
+    Alerts --> PagerDuty
+    
+    %% Estilos
+    classDef appStyle fill:#4CAF50,stroke:#2E7D32,color:#fff
+    classDef logStyle fill:#2196F3,stroke:#1565C0,color:#fff
+    classDef traceStyle fill:#FF9800,stroke:#E65100,color:#fff
+    classDef metricStyle fill:#9C27B0,stroke:#6A1B9A,color:#fff
+    classDef storageStyle fill:#607D8B,stroke:#37474F,color:#fff
+    classDef vizStyle fill:#F44336,stroke:#C62828,color:#fff
+    
+    class API,Worker appStyle
+    class Serilog,LogEnrich logStyle
+    class OTel,Spans traceStyle
+    class Prometheus,Counters,Histograms,Gauges metricStyle
+    class Seq,Jaeger storageStyle
+    class Grafana,Alerts,PagerDuty vizStyle
+```
