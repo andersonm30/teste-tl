@@ -220,11 +220,37 @@ Health check protegido por JWT (exemplo de autenticação).
 - **.NET 8 SDK** instalado ([Download](https://dotnet.microsoft.com/download/dotnet/8.0))
 - Editor de código (Visual Studio, VS Code, Rider, etc.)
 
+### ⚡ DEMO RÁPIDO (5 minutos)
+
+**Opção 1: Script Automatizado** 🎬
+
+```powershell
+# Terminal 1: Iniciar API
+dotnet run --project src/IntegrationHub.Api/IntegrationHub.Api.csproj
+
+# Terminal 2: Iniciar Worker
+dotnet run --project src/IntegrationHub.Worker/IntegrationHub.Worker.csproj
+
+# Terminal 3: Executar demo automatizada
+.\demo.ps1
+```
+
+**Opção 2: Manual Swagger** 🌐
+
+1. Executar API e Worker (terminais 1 e 2 acima)
+2. Abrir navegador em: **https://localhost:7000**
+3. Usar `POST /api/integration-requests` com exemplo do Swagger
+4. Consultar status com `GET /api/integration-requests/{id}`
+
+📖 **Guia completo:** Ver arquivo `DEMO-RAPIDO.md`
+
+---
+
 ### Passo 1: Clonar o Repositório
 
 ```bash
-git clone <url-do-repositorio>
-cd teste-totvs
+git clone https://github.com/andersonm30/teste-tl.git
+cd teste-tl
 ```
 
 ### Passo 2: Restaurar Dependências
