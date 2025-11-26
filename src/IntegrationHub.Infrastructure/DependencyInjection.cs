@@ -55,17 +55,17 @@ public static class DependencyInjection
         services.AddScoped<IIntegrationRequestService, IntegrationRequestService>();
 
         // OpenTelemetry Configuration
+        // Console exporters desabilitados para evitar poluição de logs
+        // Em produção: usar Jaeger/Zipkin para traces e Prometheus para métricas
         services.AddOpenTelemetry()
             .ConfigureResource(resource => resource
                 .AddService("IntegrationHub"))
             .WithTracing(tracing => tracing
                 .AddAspNetCoreInstrumentation()
-                .AddHttpClientInstrumentation()
-                .AddConsoleExporter())
+                .AddHttpClientInstrumentation())
             .WithMetrics(metrics => metrics
                 .AddAspNetCoreInstrumentation()
-                .AddHttpClientInstrumentation()
-                .AddConsoleExporter());
+                .AddHttpClientInstrumentation());
 
         return services;
     }
