@@ -6,17 +6,15 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
 
-// Configuração do Serilog
-DependencyInjection.ConfigureSerilog(new ConfigurationBuilder()
-    .SetBasePath(Directory.GetCurrentDirectory())
-    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-    .AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production"}.json", optional: true)
-    .AddEnvironmentVariables()
-    .Build());
-
 var builder = WebApplication.CreateBuilder(args);
 
-// Adiciona Serilog ao pipeline de logging
+// Configuração do Serilog
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(builder.Configuration)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Application", "IntegrationHub")
+    .CreateLogger();
+
 builder.Host.UseSerilog();
 
 // ========================================
@@ -152,8 +150,11 @@ app.UseGlobalExceptionHandler();
 // Middleware de CorrelationId
 app.UseCorrelationId();
 
-// Serilog request logging
-app.UseSerilogRequestLogging();
+// Serilog request logging (com mais detalhes)
+app.UseSerilogRequestLogging(options =>
+{
+    options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms";
+});
 
 // Swagger (habilitado em todos os ambientes para PoC)
 app.UseSwagger();
@@ -183,17 +184,21 @@ app.MapHealthChecks("/health");
 // INICIALIZAÇÃO
 // ========================================
 
-Log.Information("Starting Integration Hub API...");
-Log.Information("Environment: {Environment}", app.Environment.EnvironmentName);
-
 try
 {
+    Log.Information("=======================================================");
+    Log.Information("Starting Integration Hub API...");
+    Log.Information("Environment: {Environment}", app.Environment.EnvironmentName);
+    Log.Information("=======================================================");
+    
     app.Run();
+    
     Log.Information("Integration Hub API stopped gracefully");
 }
 catch (Exception ex)
 {
     Log.Fatal(ex, "Integration Hub API terminated unexpectedly");
+    throw;
 }
 finally
 {
